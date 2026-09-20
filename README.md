@@ -13,10 +13,33 @@ device serial number, or household identifier.
 - Reads the washer's live `supportedCycles` list.
 - Adds a cycle selector to the existing SmartThings device.
 - Refuses cycle changes unless Smart Control is enabled and the washer is stopped.
+- Adds a constrained `schedule_wash` action that selects a supported cycle,
+  configures Samsung Delay End, and asks the washer to start when needed.
 - Leaves unknown cycle codes visible instead of guessing their meaning.
 
-The component deliberately does not replace SmartThings, start appliances,
-manage security devices, or expose a generic SmartThings command service.
+The component deliberately does not replace SmartThings, manage security
+devices, or expose a generic SmartThings command service.
+
+## Finish-by action
+
+The washer must be stopped with Smart Control enabled. The requested cycle must
+be one of the live options reported by the appliance, and the finish time must
+be within Samsung's 24-hour Delay End window. Samsung accepts Delay End in
+five-minute increments, so the integration rounds down to avoid finishing later
+than requested.
+
+```yaml
+action: smartthings_washer_companion.schedule_wash
+target:
+  entity_id: select.washing_machine_cycle
+data:
+  cycle: Colours
+  finish_at: "2026-09-21T06:55:00+01:00"
+```
+
+The action verifies the cycle and Delay End setting before sending Samsung's
+washer-specific start command. It reports an error if SmartThings does not
+confirm the requested state.
 
 ## Installation
 

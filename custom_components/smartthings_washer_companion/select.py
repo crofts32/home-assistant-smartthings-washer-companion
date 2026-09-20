@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import override
 
 from homeassistant.components.select import SelectEntity
@@ -49,3 +50,7 @@ class WasherCycleSelect(CoordinatorEntity[WasherCycleCoordinator], SelectEntity)
     @override
     async def async_select_option(self, option: str) -> None:
         await self.coordinator.async_select_cycle(option)
+
+    async def async_schedule_wash(self, cycle: str, finish_at: datetime) -> None:
+        """Schedule a named cycle to finish at a wall-clock time."""
+        await self.coordinator.async_schedule_wash(cycle, finish_at)

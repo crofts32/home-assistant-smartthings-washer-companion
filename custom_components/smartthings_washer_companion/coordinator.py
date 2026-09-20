@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -11,18 +13,27 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_COMPLETION_TIME,
+    ATTR_DELAY_REMAINING_TIME,
+    ATTR_JOB_STATE,
     ATTR_MACHINE_STATE,
+    ATTR_MINIMUM_RESERVABLE_TIME,
     ATTR_REFERENCE_TABLE,
     ATTR_REMOTE_CONTROL_ENABLED,
     ATTR_SUPPORTED_CYCLES,
     ATTR_WASHER_CYCLE,
     CAP_REMOTE_CONTROL,
+    CAP_SAMSUNG_WASHER_OPERATING_STATE,
     CAP_SUPPORTED_OPTIONS,
     CAP_WASHER_CYCLE,
+    CAP_WASHER_DELAY_END,
     CAP_WASHER_OPERATING_STATE,
+    COMMAND_SET_DELAY_TIME,
     COMMAND_SET_WASHER_CYCLE,
+    COMMAND_START,
     CONF_DEVICE_ID,
     CONF_SMARTTHINGS_ENTRY_ID,
     DEFAULT_UPDATE_INTERVAL,
@@ -34,8 +45,10 @@ from .logic import (
     attribute_value,
     build_labels,
     cycle_label,
+    delay_minutes_for_finish,
     extract_supported_cycles,
     infer_table_id,
+    integer_value,
     is_enabled,
     mapping_get,
     normalise_cycle_code,
@@ -117,6 +130,10 @@ class WasherCycleCoordinator(DataUpdateCoordinator[WasherCycleData]):
 
             remote_cap = mapping_get(main, CAP_REMOTE_CONTROL)
             operating_cap = mapping_get(main, CAP_WASHER_OPERATING_STATE)
+            delay_cap = mapping_get(main, CAP_WASHER_DELAY_END)
+            samsung_operating_cap = mapping_get(
+                main, CAP_SAMSUNG_WASHER_OPERATING_STATE
+            )
             return WasherCycleData(
                 current_code=current_code,
                 current_label=current_label,
@@ -127,6 +144,19 @@ class WasherCycleCoordinator(DataUpdateCoordinator[WasherCycleData]):
                     attribute_value(remote_cap, ATTR_REMOTE_CONTROL_ENABLED)
                 ),
                 machine_state=attribute_value(operating_cap, ATTR_MACHINE_STATE),
+                job_state=attribute_value(operating_cap, ATTR_JOB_STATE),
+                completion_time=attribute_value(
+                    operating_cap, ATTR_COMPLETION_TIME
+                ),
+                delay_supported=(
+                    delay_cap is not None and samsung_operating_cap is not None
+                ),
+                delay_remaining_minutes=integer_value(
+                    attribute_value(delay_cap, ATTR_DELAY_REMAINING_TIME)
+                ),
+                minimum_reservable_minutes=integer_value(
+                    attribute_value(delay_cap, ATTR_MINIMUM_RESERVABLE_TIME)
+                ),
             )
         except (ConfigEntryNotReady, UpdateFailed):
             raise
@@ -162,3 +192,100 @@ class WasherCycleCoordinator(DataUpdateCoordinator[WasherCycleData]):
         except Exception as err:
             raise HomeAssistantError("SmartThings rejected the cycle change") from err
         await self.async_request_refresh()
+
+    def _validate_ready(self) -> WasherCycleData:
+        """Return fresh data when the washer is safe to configure."""
+        if not self.last_update_success or not self.data:
+            raise HomeAssistantError("Could not verify the washer's current state")
+        if not self.data.remote_control_enabled:
+            raise HomeAssistantError(
+                "Enable Smart Control on the washer before scheduling a wash"
+            )
+        if self.data.machine_state != "stop":
+            raise HomeAssistantError("The washer must be stopped before scheduling")
+        return self.data
+
+    async def async_schedule_wash(self, label: str, finish_at: datetime) -> int:
+        """Select a cycle, set Samsung Delay End, and start the schedule."""
+        await self.async_refresh()
+        data = self._validate_ready()
+        if not data.delay_supported:
+            raise HomeAssistantError(
+                "This washer does not expose Samsung Delay End through SmartThings"
+            )
+
+        requested_label = next(
+            (option for option in data.labels if option.casefold() == label.casefold()),
+            None,
+        )
+        if requested_label is None:
+            raise HomeAssistantError(f"Unsupported washer cycle: {label}")
+
+        if data.current_label != requested_label:
+            await self.async_select_cycle(requested_label)
+            for _ in range(5):
+                await asyncio.sleep(1)
+                await self.async_refresh()
+                data = self._validate_ready()
+                if data.current_label == requested_label:
+                    break
+            else:
+                raise HomeAssistantError(
+                    "SmartThings did not confirm the requested washer cycle"
+                )
+
+        finish_at_utc = dt_util.as_utc(finish_at)
+        try:
+            delay_minutes = delay_minutes_for_finish(dt_util.utcnow(), finish_at_utc)
+        except ValueError as err:
+            raise HomeAssistantError(str(err)) from err
+        minimum_minutes = max(data.minimum_reservable_minutes or 0, 5)
+        if delay_minutes < minimum_minutes:
+            raise HomeAssistantError(
+                "The requested finish time is too soon for this washer"
+            )
+        if delay_minutes > 1440:
+            raise HomeAssistantError(
+                "Samsung Delay End only supports finish times within 24 hours"
+            )
+
+        try:
+            await self._client().execute_device_command(
+                self.device_id,
+                Capability(CAP_WASHER_DELAY_END),
+                Command(COMMAND_SET_DELAY_TIME),
+                MAIN,
+                argument=delay_minutes,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                "SmartThings rejected the Delay End setting"
+            ) from err
+
+        for _ in range(10):
+            await asyncio.sleep(1)
+            await self.async_refresh()
+            data = self._validate_ready()
+            if (
+                data.delay_remaining_minutes is not None
+                and abs(data.delay_remaining_minutes - delay_minutes) <= 5
+            ):
+                break
+        else:
+            raise HomeAssistantError(
+                "SmartThings did not confirm the requested Delay End time"
+            )
+
+        try:
+            await self._client().execute_device_command(
+                self.device_id,
+                Capability(CAP_SAMSUNG_WASHER_OPERATING_STATE),
+                Command(COMMAND_START),
+                MAIN,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                "Delay End was set, but SmartThings rejected the start command"
+            ) from err
+        await self.async_request_refresh()
+        return delay_minutes

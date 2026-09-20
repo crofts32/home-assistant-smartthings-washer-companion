@@ -1,0 +1,14 @@
+schedule_wash:
+  target:
+    entity:
+      integration: smartthings_washer_companion
+      domain: select
+  fields:
+    cycle:
+      required: true
+      selector:
+        text:
+    finish_at:
+      required: true
+      selector:
+        datetime:

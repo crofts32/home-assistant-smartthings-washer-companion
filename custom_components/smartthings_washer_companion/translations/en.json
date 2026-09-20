@@ -13,5 +13,21 @@
       "already_configured": "This washer is already configured.",
       "no_supported_washers": "No loaded SmartThings washer exposing samsungce.washerCycle was found. Reload SmartThings and try again."
     }
+  },
+  "services": {
+    "schedule_wash": {
+      "name": "Schedule wash",
+      "description": "Select a washer cycle and use Samsung Delay End so it finishes at the requested time.",
+      "fields": {
+        "cycle": {
+          "name": "Cycle",
+          "description": "A cycle currently offered by the companion cycle selector."
+        },
+        "finish_at": {
+          "name": "Finish at",
+          "description": "The local date and time by which the wash should finish."
+        }
+      }
+    }
   }
 }

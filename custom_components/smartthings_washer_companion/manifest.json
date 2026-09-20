@@ -7,5 +7,5 @@
   "documentation": "https://github.com/crofts32/home-assistant-smartthings-washer-companion",
   "integration_type": "device",
   "iot_class": "cloud_polling",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

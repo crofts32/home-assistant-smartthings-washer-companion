@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from .const import CYCLE_NAMES
@@ -109,6 +110,24 @@ def is_enabled(value: Any) -> bool:
     return value is True or str(value).lower() in {"true", "on", "enabled"}
 
 
+def integer_value(value: Any) -> int | None:
+    """Return an integer SmartThings value when possible."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def delay_minutes_for_finish(now: datetime, finish_at: datetime) -> int:
+    """Return a five-minute delay that finishes no later than requested."""
+    if now.tzinfo is None or finish_at.tzinfo is None:
+        raise ValueError("Both datetimes must include a timezone")
+    seconds = (finish_at - now).total_seconds()
+    if seconds <= 0:
+        raise ValueError("Finish time must be in the future")
+    return int(seconds // 300) * 5
+
+
 @dataclass(frozen=True, slots=True)
 class WasherCycleData:
     """Parsed washer cycle state."""
@@ -120,3 +139,8 @@ class WasherCycleData:
     table_id: str
     remote_control_enabled: bool
     machine_state: str | None
+    job_state: str | None
+    completion_time: str | None
+    delay_supported: bool
+    delay_remaining_minutes: int | None
+    minimum_reservable_minutes: int | None

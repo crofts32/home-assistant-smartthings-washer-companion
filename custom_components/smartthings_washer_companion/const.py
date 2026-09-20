@@ -7,6 +7,10 @@ from datetime import timedelta
 DOMAIN = "smartthings_washer_companion"
 PLATFORMS = ["select"]
 
+SERVICE_SCHEDULE_WASH = "schedule_wash"
+ATTR_CYCLE = "cycle"
+ATTR_FINISH_AT = "finish_at"
+
 CONF_SMARTTHINGS_ENTRY_ID = "smartthings_entry_id"
 CONF_DEVICE_ID = "device_id"
 
@@ -16,12 +20,23 @@ ATTR_WASHER_CYCLE = "washerCycle"
 ATTR_SUPPORTED_CYCLES = "supportedCycles"
 COMMAND_SET_WASHER_CYCLE = "setWasherCycle"
 
+CAP_WASHER_DELAY_END = "samsungce.washerDelayEnd"
+ATTR_DELAY_REMAINING_TIME = "remainingTime"
+ATTR_MINIMUM_RESERVABLE_TIME = "minimumReservableTime"
+COMMAND_SET_DELAY_TIME = "setDelayTime"
+
+CAP_SAMSUNG_WASHER_OPERATING_STATE = "samsungce.washerOperatingState"
+COMMAND_START = "start"
+COMMAND_CANCEL = "cancel"
+
 CAP_SUPPORTED_OPTIONS = "custom.supportedOptions"
 ATTR_REFERENCE_TABLE = "referenceTable"
 CAP_REMOTE_CONTROL = "remoteControlStatus"
 ATTR_REMOTE_CONTROL_ENABLED = "remoteControlEnabled"
 CAP_WASHER_OPERATING_STATE = "washerOperatingState"
 ATTR_MACHINE_STATE = "machineState"
+ATTR_JOB_STATE = "washerJobState"
+ATTR_COMPLETION_TIME = "completionTime"
 
 DEFAULT_UPDATE_INTERVAL = timedelta(minutes=5)
 
