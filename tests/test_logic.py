@@ -41,6 +41,11 @@ def test_normalises_prefixed_status_value() -> None:
     assert normalise_cycle_code("Table_02_Course_21") == "Course_21"
 
 
+def test_normalises_bare_hex_cycle_code() -> None:
+    assert normalise_cycle_code("21") == "Course_21"
+    assert normalise_cycle_code("1c") == "Course_1C"
+
+
 def test_duplicate_labels_include_raw_code() -> None:
     labels, lookup = build_labels(["Course_1A", "Course_32"], "table_02")
     assert labels == ["Shirts (Course_1A)", "Shirts (Course_32)"]

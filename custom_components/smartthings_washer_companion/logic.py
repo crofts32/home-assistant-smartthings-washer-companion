@@ -54,6 +54,10 @@ def normalise_cycle_code(value: Any) -> str | None:
     if value.lower().startswith("course_"):
         suffix = value.split("_", 1)[1].upper()
         return f"Course_{suffix}"
+    if len(value) == 2 and all(
+        character in "0123456789abcdefABCDEF" for character in value
+    ):
+        return f"Course_{value.upper()}"
     return value
 
 
