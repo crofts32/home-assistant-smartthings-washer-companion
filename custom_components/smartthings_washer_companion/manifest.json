@@ -1,0 +1,11 @@
+{
+  "domain": "smartthings_washer_companion",
+  "name": "SmartThings Washer Companion",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["smartthings"],
+  "documentation": "https://github.com/crofts32/home-assistant-smartthings-washer-companion",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "version": "0.1.0"
+}
