@@ -35,6 +35,7 @@ from .logic import (
     build_labels,
     cycle_label,
     extract_supported_cycles,
+    infer_table_id,
     is_enabled,
     mapping_get,
     normalise_cycle_code,
@@ -100,6 +101,8 @@ class WasherCycleCoordinator(DataUpdateCoordinator[WasherCycleData]):
                 table_id = normalise_table_id(
                     attribute_value(supported_cap, ATTR_REFERENCE_TABLE)
                 )
+            if not table_id:
+                table_id = infer_table_id(codes)
             labels, code_by_label = build_labels(codes, table_id)
             current_label = None
             if current_code in codes:

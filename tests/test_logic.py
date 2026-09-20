@@ -4,6 +4,7 @@ from custom_components.smartthings_washer_companion.logic import (
     build_labels,
     cycle_label,
     extract_supported_cycles,
+    infer_table_id,
     normalise_cycle_code,
     normalise_table_id,
 )
@@ -22,6 +23,14 @@ def test_extracts_supported_cycle_objects() -> None:
 def test_table_and_colours_translation() -> None:
     assert normalise_table_id({"id": "Table_02"}) == "table_02"
     assert cycle_label("Course_21", "table_02") == "Colours"
+
+
+def test_infers_unambiguous_table_from_supported_cycles() -> None:
+    assert infer_table_id(["Course_1C", "Course_21", "Course_96"]) == "table_02"
+
+
+def test_does_not_infer_ambiguous_table() -> None:
+    assert infer_table_id(["Course_1B"]) == ""
 
 
 def test_unknown_cycle_is_never_guessed() -> None:

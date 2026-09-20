@@ -75,6 +75,18 @@ def cycle_label(code: str, table_id: str) -> str:
     return CYCLE_NAMES.get(table_id, {}).get(code, code)
 
 
+def infer_table_id(codes: list[str]) -> str:
+    """Infer a table only when one known table contains every device code."""
+    if not codes:
+        return ""
+    candidates = [
+        table_id
+        for table_id, names in CYCLE_NAMES.items()
+        if all(code in names for code in codes)
+    ]
+    return candidates[0] if len(candidates) == 1 else ""
+
+
 def build_labels(codes: list[str], table_id: str) -> tuple[list[str], dict[str, str]]:
     """Build unique display labels and a display-to-code lookup."""
     labels: list[str] = []
